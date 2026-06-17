@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>JD CHINESE - 어순 점프 타워</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="game-container">
+      <div id="intro-screen" class="screen">
+        <h1 class="blink">
+          아무 곳이나 터치해주세요<br /><small>(Tap to Start)</small>
+        </h1>
+      </div>
+
+      <div id="lobby-screen" class="screen hidden">
+        <h1 class="logo">JD CHINESE</h1>
+        <div class="menu-buttons">
+          <button onclick="startGame('normal')" class="btn-normal">
+            노말 모드
+          </button>
+          <button onclick="startGame('hell')" class="btn-hell">
+            지옥 모드 (Hell)
+          </button>
+          <button onclick="showRanking()" class="btn-rank">명예의 전당</button>
+        </div>
+      </div>
+
+      <div id="ranking-screen" class="screen hidden">
+        <h2 style="color: #00ffcc">명예의 전당</h2>
+        <ul id="ranking-list"></ul>
+        <button onclick="hideRanking()" class="btn-normal">
+          로비로 돌아가기
+        </button>
+      </div>
+
+      <div id="game-ui" class="hidden">
+        <div id="top-ui">
+          <span>높이: <span id="score">0</span>m</span>
+          <span id="lava-warning">용암: <span id="lava-speed">0.5</span>x</span>
+        </div>
+
+        <div id="canvas-container">
+          <canvas id="gameCanvas" width="400" height="600"></canvas>
+
+          <div id="game-over" class="hidden">
+            <h2>용암에 빠졌습니다!</h2>
+            <p style="color: #ccc; margin-bottom: 20px">
+              기록:
+              <span
+                id="final-score"
+                style="color: #ffcc00; font-size: 1.5rem; font-weight: bold"
+              ></span
+              >m
+            </p>
+            <button
+              onclick="goToLobby()"
+              style="background: linear-gradient(45deg, #00b386, #00ffcc)"
+            >
+              로비로 돌아가기
+            </button>
+          </div>
+
+          <div id="quiz-modal" class="hidden">
+            <h3 id="quiz-meaning"></h3>
+            <p style="color: #ccc">올바른 어순을 조합하세요!</p>
+            <div id="quiz-buttons"></div>
+            <div id="quiz-answer-slot"></div>
+          </div>
+        </div>
+
+        <div id="touch-controls">
+          <button id="btn-left">◀</button>
+          <button id="btn-space">JUMP</button>
+          <button id="btn-right">▶</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="scripts.js"></script>
+  </body>
+</html>

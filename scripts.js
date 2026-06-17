@@ -11,9 +11,7 @@ const gameOverUI = document.getElementById('game-over');
 const quizModal = document.getElementById('quiz-modal');
 const rankingList = document.getElementById('ranking-list');
 
-// ==========================================
-// 📜 슈퍼 점프 전용 중국 명언 데이터베이스
-// ==========================================
+// === 슈퍼 점프 전용 중국 명언 ===
 const superJumpQuotes = [
   {
     hz: '欲穷千里目，更上一层楼',
@@ -32,10 +30,10 @@ const superJumpQuotes = [
     kr: '한 번 날면 하늘을 뚫고, 한 번 울면 세상을 놀라게 하리라.',
   },
 ];
-let currentSubtitle = { hz: '', kr: '' }; // 현재 화면에 표시할 자막
+let currentSubtitle = { hz: '', kr: '' };
 
 // ==========================================
-// 🎙️ 중국어 TTS (Text-to-Speech) 시스템
+// 🎙️ 중국어 TTS (안전성 대폭 강화)
 // ==========================================
 let cnVoices = [];
 window.speechSynthesis.onvoiceschanged = () => {
@@ -45,32 +43,46 @@ window.speechSynthesis.onvoiceschanged = () => {
 };
 
 function speakChinese(text, type = 'normal') {
-  if (!window.speechSynthesis) return;
+  // [버그 수정] 어떤 환경에서든 TTS 오류로 게임이 멈추지 않도록 묶음 방어
+  try {
+    if (!window.speechSynthesis) return;
 
-  window.speechSynthesis.cancel(); // 이전 음성 즉시 캔슬
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'zh-CN';
 
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'zh-CN';
+    if (type === 'superJump') {
+      let voice = cnVoices.find(
+        (v) =>
+          v.name.toLowerCase().includes('male') ||
+          v.name.includes('Kangkang') ||
+          v.name.includes('Yunxi') ||
+          v.name.includes('Yunjian'),
+      );
+      if (!voice && cnVoices.length > 0)
+        voice = cnVoices.find((v) => v.lang.includes('zh'));
+      if (voice) utterance.voice = voice;
 
-  let voice = cnVoices.find(
-    (v) =>
-      v.name.toLowerCase().includes('female') ||
-      v.name.includes('Xiaoxiao') ||
-      v.name.includes('Tingting'),
-  );
-  if (!voice && cnVoices.length > 0) voice = cnVoices[0];
-  if (voice) utterance.voice = voice;
+      utterance.pitch = 0.65;
+      utterance.rate = 0.8;
+    } else {
+      let voice = cnVoices.find(
+        (v) =>
+          v.name.toLowerCase().includes('female') ||
+          v.name.includes('Xiaoxiao') ||
+          v.name.includes('Tingting'),
+      );
+      if (!voice && cnVoices.length > 0) voice = cnVoices[0];
+      if (voice) utterance.voice = voice;
 
-  if (type === 'jump') {
-    utterance.pitch = 1.3;
-    utterance.rate = 1.5; // 일반 점프: 짧고 강하게 "탸오!"
-  } else {
-    // 명언 및 퀴즈 낭독: 차분하고 격조 있는 여성 아나운서 톤
-    utterance.pitch = 1.0;
-    utterance.rate = 0.85; // 중후함을 위해 살짝 느리게 조절
+      utterance.pitch = type === 'jump' ? 1.3 : 1.0;
+      utterance.rate = type === 'jump' ? 1.5 : 1.0;
+    }
+
+    window.speechSynthesis.speak(utterance);
+  } catch (e) {
+    console.warn('TTS가 지원되지 않거나 막혀있습니다.', e);
   }
-
-  window.speechSynthesis.speak(utterance);
 }
 
 // === 오디오 시스템 ===
@@ -516,9 +528,18 @@ window.addEventListener('keyup', (e) => {
 });
 
 function triggerJump() {
+  if (player.isJumping || player.isSuperJumping) return;
+
   player.isJumping = true;
+  // [버그 수정] 삭제되었던 발판 타입 인식 로직 재적용
+  player.jumpFromType = player.currentPlatform
+    ? player.currentPlatform.type
+    : 'static';
   player.currentPlatform = null;
-  player.vy = JUMP_POWER;
+
+  let currentJumpPower =
+    player.jumpFromType === 'heavy' ? JUMP_POWER * 0.75 : JUMP_POWER;
+  player.vy = currentJumpPower;
   player.platformOffsetY = 0;
 
   createParticles(player.x, player.y + player.radius, '#FF9800', 15);
@@ -579,12 +600,13 @@ function update() {
     }
   }
 
-  // [무적 상태 제어] 슈퍼 점프 중에는 좌우 이동 및 충돌 처리를 전부 무시함
   if (player.isSuperJumping) {
     player.currentChar = '飛';
     player.rotation = 0;
     player.vy = -35;
-    player.vx = 0;
+
+    player.vx = targetVx;
+    player.x += player.vx;
     player.y += player.vy;
 
     createParticles(player.x, player.y + player.radius, '#ff00ff', 3);
@@ -599,7 +621,6 @@ function update() {
     player.vx = targetVx;
     player.x += player.vx;
 
-    // L자 발판 벽 충돌
     platforms.forEach((p) => {
       if (p.shape.includes('L-')) {
         let isLeft = p.shape.includes('L-left');
@@ -682,7 +703,6 @@ function update() {
   if (player.x > canvas.width - player.radius)
     player.x = canvas.width - player.radius;
 
-  // [무적 제어] 슈퍼 점프 중에는 노란색 아이템도 획득 판정을 패스함
   if (!player.isSuperJumping) {
     items.forEach((item) => {
       item.floatOffset += 0.1;
@@ -855,16 +875,15 @@ function selectOption(selectedIndex) {
 
       if (currentQuizSource === 'spring') {
         player.isSuperJumping = true;
-        player.superJumpTarget = score + Math.floor(Math.random() * 200) + 350;
+        player.superJumpTarget = score + Math.floor(Math.random() * 200) + 850;
         player.vy = -35;
         player.isJumping = true;
         player.currentPlatform = null;
         sfx.superJump();
 
-        // [명언 선정 및 낭독] 랜덤하게 명언을 뽑아 할당 후 웅장하게 출력
         currentSubtitle =
           superJumpQuotes[Math.floor(Math.random() * superJumpQuotes.length)];
-        speakChinese(currentSubtitle.hz, 'normal');
+        speakChinese(currentSubtitle.hz, 'superJump');
 
         createParticles(player.x, player.y + player.radius, '#ff00ff', 40);
       }
@@ -1034,25 +1053,18 @@ function draw() {
   ctx.fillText(player.currentChar, 0, 0);
   ctx.restore();
 
-  // ==========================================
-  // 🎨 [신규 연출] 슈퍼 점프 전용 궁서체 명언 자막 렌더링
-  // ==========================================
   if (player.isSuperJumping) {
     ctx.save();
     ctx.textAlign = 'center';
-
-    // 검은색 투명 배경 바 (가사 바 느낌)
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
     ctx.fillRect(10, 180, canvas.width - 20, 100);
 
-    // 1. 한자 자막 (궁서체)
     ctx.font = "bold 22px 'Gungsuh', '궁서', 'GungsuhChe', serif";
-    ctx.fillStyle = '#ffcc00'; // 황금빛 서체
+    ctx.fillStyle = '#ffcc00';
     ctx.shadowBlur = 4;
     ctx.shadowColor = '#000';
     ctx.fillText(currentSubtitle.hz, canvas.width / 2, 220);
 
-    // 2. 한글 해석 자막 (얇은 궁서)
     ctx.font = "14px 'Gungsuh', '궁서', serif";
     ctx.fillStyle = '#ffffff';
     ctx.fillText(currentSubtitle.kr, canvas.width / 2, 255);

@@ -11,7 +11,7 @@ const gameOverUI = document.getElementById('game-over');
 const quizModal = document.getElementById('quiz-modal');
 const rankingList = document.getElementById('ranking-list');
 
-// === 슈퍼 점프 전용 중국 명언 ===
+// === 슈퍼 점프 전용 중국 명언 (중후한 남성 목소리) ===
 const superJumpQuotes = [
   {
     hz: '欲穷千里目，更上一层楼',
@@ -30,10 +30,22 @@ const superJumpQuotes = [
     kr: '한 번 날면 하늘을 뚫고, 한 번 울면 세상을 놀라게 하리라.',
   },
 ];
+
+// === 점프 응원 문구 5종 세트 ===
+const jumpPhrases = [
+  { hz: '跳!', kr: '뛰어!' },
+  { hz: '加油!', kr: '힘내!' },
+  { hz: '冲啊!', kr: '가자!' },
+  { hz: '努力!', kr: '열심히 해!' },
+  { hz: '走吧!', kr: '출발!' },
+];
+
 let currentSubtitle = { hz: '', kr: '' };
+let quoteTimer = 0; // 명언 자막과 음성 유지를 위한 독립 타이머
+let isQuotePlaying = false;
 
 // ==========================================
-// 🎙️ 중국어 TTS (안전성 대폭 강화)
+// 🎙️ 중국어 TTS 엔진 (음성 보호 로직 추가)
 // ==========================================
 let cnVoices = [];
 window.speechSynthesis.onvoiceschanged = () => {
@@ -43,15 +55,20 @@ window.speechSynthesis.onvoiceschanged = () => {
 };
 
 function speakChinese(text, type = 'normal') {
-  // [버그 수정] 어떤 환경에서든 TTS 오류로 게임이 멈추지 않도록 묶음 방어
   try {
     if (!window.speechSynthesis) return;
+
+    // 명언이 재생 중일 때, 일반 점프 소리는 재생하지 않고 무시하여 끊김 방지
+    if (isQuotePlaying && type === 'jump') return;
 
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'zh-CN';
 
     if (type === 'superJump') {
+      isQuotePlaying = true;
+      setTimeout(() => (isQuotePlaying = false), 5000); // 5초 후 음성 보호 해제
+
       let voice = cnVoices.find(
         (v) =>
           v.name.toLowerCase().includes('male') ||
@@ -81,7 +98,7 @@ function speakChinese(text, type = 'normal') {
 
     window.speechSynthesis.speak(utterance);
   } catch (e) {
-    console.warn('TTS가 지원되지 않거나 막혀있습니다.', e);
+    console.warn('TTS 에러', e);
   }
 }
 
@@ -304,6 +321,7 @@ const JUMP_POWER = -10.0;
 const MOVE_SPEED = 4.5;
 let currentQuiz = null;
 let currentQuizSource = null;
+let superJumpCount = 0; // 누적 점프 횟수
 
 // === 포인터 이벤트 ===
 const btnLeft = document.getElementById('btn-left');
@@ -368,6 +386,9 @@ function startGame(mode) {
   score = 0;
   scoreUI.innerText = score;
   hasStartedClimbing = false;
+  superJumpCount = 0;
+  quoteTimer = 0;
+  isQuotePlaying = false;
 
   let initialLavaSpeed = gameMode === 'hell' ? 1.0 : 0.6;
   lava = { y: canvas.height - 40, speed: initialLavaSpeed };
@@ -401,6 +422,7 @@ function startGame(mode) {
     rotation: 0,
     isSuperJumping: false,
     superJumpTarget: 0,
+    jumpFx: { hz: '', kr: '', life: 0, x: 0, y: 0, color: '#ffcc00' }, // 점프 응원 문구용 객체
   };
 
   for (let i = 1; i <= 8; i++) generateLevel();
@@ -430,6 +452,7 @@ function createPlatform(x, y, type, shape = 'rect', width = 70) {
     angle: 0,
     pillarH: shape.includes('tall') ? 45 : 20,
     used: false,
+    penaltyApplied: false, // 페널티 1회성 적용 속성
   };
 }
 
@@ -461,7 +484,12 @@ function generateLevel() {
       shape = 'spring';
       width = 60;
       selectedType = 'static';
-    } else if (subRand < 0.4) {
+    } else if (subRand < 0.35) {
+      // 20% 확률로 페널티(빨간색) 발판 등장
+      shape = 'rect';
+      width = Math.random() * 30 + 40;
+      selectedType = 'penalty';
+    } else if (subRand < 0.6) {
       let lTypes = [
         'L-left-tall',
         'L-right-tall',
@@ -470,7 +498,7 @@ function generateLevel() {
       ];
       shape = lTypes[Math.floor(Math.random() * lTypes.length)];
       width = shape.includes('wide') ? 110 : 70;
-    } else if (subRand < 0.7) {
+    } else if (subRand < 0.8) {
       shape = 'circle';
       width = 50;
     } else {
@@ -492,7 +520,11 @@ function generateLevel() {
   platforms.push(newPlatform);
 
   let itemChance = 0.15 - difficulty * 0.05;
-  if (shape !== 'spring' && Math.random() < itemChance)
+  if (
+    shape !== 'spring' &&
+    selectedType !== 'penalty' &&
+    Math.random() < itemChance
+  ) {
     items.push({
       x: xPos + width / 2 - 10,
       y: yPos - 25,
@@ -501,6 +533,7 @@ function generateLevel() {
       active: true,
       floatOffset: 0,
     });
+  }
 }
 
 window.addEventListener('keydown', (e) => {
@@ -531,7 +564,6 @@ function triggerJump() {
   if (player.isJumping || player.isSuperJumping) return;
 
   player.isJumping = true;
-  // [버그 수정] 삭제되었던 발판 타입 인식 로직 재적용
   player.jumpFromType = player.currentPlatform
     ? player.currentPlatform.type
     : 'static';
@@ -544,7 +576,18 @@ function triggerJump() {
 
   createParticles(player.x, player.y + player.radius, '#FF9800', 15);
   sfx.jump();
-  speakChinese('跳', 'jump');
+
+  // 점프 문구 무작위 선정 후 팝업
+  let phrase = jumpPhrases[Math.floor(Math.random() * jumpPhrases.length)];
+  player.jumpFx = {
+    hz: phrase.hz,
+    kr: phrase.kr,
+    life: 1.0,
+    x: player.x,
+    y: player.y - 30,
+    color: '#00ffcc',
+  };
+  speakChinese(phrase.hz, 'jump');
 }
 
 function createParticles(x, y, color, count) {
@@ -563,6 +606,15 @@ function createParticles(x, y, color, count) {
 
 function update() {
   if (gameState !== 'PLAYING') return;
+
+  // 명언 팝업 타이머 감소
+  if (quoteTimer > 0) quoteTimer--;
+
+  // 점프 텍스트 팝업 위로 날아가며 페이드아웃
+  if (player.jumpFx.life > 0) {
+    player.jumpFx.life -= 0.02;
+    player.jumpFx.y -= 1;
+  }
 
   platforms.forEach((p) => {
     p.x += p.speedX;
@@ -814,6 +866,20 @@ function checkLanding() {
           player.y + player.radius >= surfaceY &&
           player.y + player.radius <= surfaceY + player.vy + 4
         ) {
+          // [신규 기믹] 빨간색 페널티 밟았을 때 용암 속도 1% 증가
+          if (p.type === 'penalty' && !p.penaltyApplied) {
+            p.penaltyApplied = true;
+            lava.speed *= 1.01;
+            player.jumpFx = {
+              hz: '警告!',
+              kr: '용암 가속 (+1%)',
+              life: 1.5,
+              x: p.x + p.width / 2,
+              y: p.y - 20,
+              color: '#ff3333',
+            };
+          }
+
           player.y = surfaceY - player.radius;
           player.vy = 0;
           player.vx = 0;
@@ -874,8 +940,11 @@ function selectOption(selectedIndex) {
       gameState = 'PLAYING';
 
       if (currentQuizSource === 'spring') {
+        superJumpCount++; // 밟을 때마다 스택 누적 (200, 400, 600...)
+        let bonusDist = superJumpCount * 200;
+
         player.isSuperJumping = true;
-        player.superJumpTarget = score + Math.floor(Math.random() * 200) + 850;
+        player.superJumpTarget = score + bonusDist;
         player.vy = -35;
         player.isJumping = true;
         player.currentPlatform = null;
@@ -885,6 +954,7 @@ function selectOption(selectedIndex) {
           superJumpQuotes[Math.floor(Math.random() * superJumpQuotes.length)];
         speakChinese(currentSubtitle.hz, 'superJump');
 
+        quoteTimer = 300; // 자막 및 음성 강제 보호 시간 (5초) 설정
         createParticles(player.x, player.y + player.radius, '#ff00ff', 40);
       }
     }, 1000);
@@ -952,7 +1022,11 @@ function draw() {
 
   platforms.forEach((p) => {
     ctx.shadowBlur = 15;
-    if (p.type === 'heavy') {
+    // [신규 렌더링] 페널티 블록은 붉은색으로
+    if (p.type === 'penalty') {
+      ctx.fillStyle = '#ff3333';
+      ctx.shadowColor = '#ff3333';
+    } else if (p.type === 'heavy') {
       ctx.fillStyle = '#3F51B5';
       ctx.shadowColor = '#3F51B5';
     } else if (p.shape === 'spring') {
@@ -1053,7 +1127,26 @@ function draw() {
   ctx.fillText(player.currentChar, 0, 0);
   ctx.restore();
 
-  if (player.isSuperJumping) {
+  // [신규 시각 효과] 점프 및 경고 플로팅 텍스트 렌더링
+  if (player.jumpFx.life > 0) {
+    ctx.save();
+    ctx.globalAlpha = player.jumpFx.life;
+    ctx.textAlign = 'center';
+    ctx.shadowBlur = 5;
+    ctx.shadowColor = '#000';
+
+    ctx.font = "bold 22px 'Malgun Gothic'";
+    ctx.fillStyle = player.jumpFx.color;
+    ctx.fillText(player.jumpFx.hz, player.jumpFx.x, player.jumpFx.y);
+
+    ctx.font = "14px 'Malgun Gothic'";
+    ctx.fillStyle = '#fff';
+    ctx.fillText(player.jumpFx.kr, player.jumpFx.x, player.jumpFx.y + 18);
+    ctx.restore();
+  }
+
+  // 명언 렌더링: 비행 상태와 무관하게 quoteTimer가 남아있다면 무조건 표시 유지
+  if (quoteTimer > 0) {
     ctx.save();
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';

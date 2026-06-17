@@ -130,11 +130,11 @@ canvas {
   top: 40%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: rgba(15, 15, 20, 0.95);
-  padding: 30px;
+  background: rgba(15, 15, 20, 0.98);
+  padding: 25px;
   border-radius: 15px;
   border: 2px solid #00ffcc;
-  width: 85%;
+  width: 90%;
   z-index: 10;
   text-align: center;
 }
@@ -156,14 +156,32 @@ button {
   cursor: pointer;
   font-size: 1.1rem;
 }
+
+/* 퀴즈 객관식 버튼 디자인 */
+.quiz-opt-btn {
+  background: linear-gradient(90deg, #444, #555);
+  color: #fff;
+  text-align: left;
+  padding: 12px 15px;
+  border-left: 4px solid #00ffcc;
+  font-size: 1rem;
+  transition: 0.1s;
+}
+.quiz-opt-btn:active,
+.quiz-opt-btn:hover {
+  background: #00ffcc;
+  color: #000;
+}
+
 #quiz-answer-slot {
   margin-top: 20px;
   color: #ffcc00;
   font-weight: bold;
   font-size: 1.1rem;
+  min-height: 25px;
 }
 
-/* === 모바일 최적화 가상 터치 패드 === */
+/* === 모바일 가상 터치 패드 === */
 #touch-controls {
   display: flex;
   justify-content: space-between;
@@ -174,7 +192,6 @@ button {
   flex-shrink: 0;
   border-top: 2px solid #333;
 }
-
 .d-pad {
   display: flex;
   gap: 10px;
@@ -191,7 +208,6 @@ button {
   touch-action: none;
   transition: background 0.1s;
 }
-
 .action-pad {
   width: 40%;
   display: flex;
@@ -208,7 +224,6 @@ button {
   box-shadow: 0 4px 15px rgba(0, 255, 204, 0.4);
   touch-action: none;
 }
-
 .d-pad button:active {
   background: rgba(255, 255, 255, 0.3);
   transform: scale(0.95);

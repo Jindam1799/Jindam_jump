@@ -11,6 +11,68 @@ const gameOverUI = document.getElementById('game-over');
 const quizModal = document.getElementById('quiz-modal');
 const rankingList = document.getElementById('ranking-list');
 
+// ==========================================
+// 📜 슈퍼 점프 전용 중국 명언 데이터베이스
+// ==========================================
+const superJumpQuotes = [
+  {
+    hz: '欲穷千里目，更上一层楼',
+    kr: '천 리 밖을 내다보려고, 다시 한 층을 더 오른다.',
+  },
+  {
+    hz: '大鹏一日同风起，扶摇直上九万里',
+    kr: '대붕이 바람을 만나니, 구만리 상공으로 곧장 솟구친다.',
+  },
+  {
+    hz: '长风破浪会有时，直挂云帆济沧海',
+    kr: '거센 바람 타고 파도를 헤쳐, 구름 돛을 달고 바다를 건너리라.',
+  },
+  {
+    hz: '不鸣则已，一鸣惊人',
+    kr: '한 번 날면 하늘을 뚫고, 한 번 울면 세상을 놀라게 하리라.',
+  },
+];
+let currentSubtitle = { hz: '', kr: '' }; // 현재 화면에 표시할 자막
+
+// ==========================================
+// 🎙️ 중국어 TTS (Text-to-Speech) 시스템
+// ==========================================
+let cnVoices = [];
+window.speechSynthesis.onvoiceschanged = () => {
+  cnVoices = window.speechSynthesis
+    .getVoices()
+    .filter((v) => v.lang.includes('zh'));
+};
+
+function speakChinese(text, type = 'normal') {
+  if (!window.speechSynthesis) return;
+
+  window.speechSynthesis.cancel(); // 이전 음성 즉시 캔슬
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'zh-CN';
+
+  let voice = cnVoices.find(
+    (v) =>
+      v.name.toLowerCase().includes('female') ||
+      v.name.includes('Xiaoxiao') ||
+      v.name.includes('Tingting'),
+  );
+  if (!voice && cnVoices.length > 0) voice = cnVoices[0];
+  if (voice) utterance.voice = voice;
+
+  if (type === 'jump') {
+    utterance.pitch = 1.3;
+    utterance.rate = 1.5; // 일반 점프: 짧고 강하게 "탸오!"
+  } else {
+    // 명언 및 퀴즈 낭독: 차분하고 격조 있는 여성 아나운서 톤
+    utterance.pitch = 1.0;
+    utterance.rate = 0.85; // 중후함을 위해 살짝 느리게 조절
+  }
+
+  window.speechSynthesis.speak(utterance);
+}
+
 // === 오디오 시스템 ===
 let audioCtx = null;
 function getAudioCtx() {
@@ -47,6 +109,22 @@ const sfx = {
       gain.connect(actx.destination);
       osc.start();
       osc.stop(actx.currentTime + 0.1);
+    } catch (e) {}
+  },
+  land: () => {
+    try {
+      const actx = getAudioCtx();
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(150, actx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(50, actx.currentTime + 0.05);
+      gain.gain.setValueAtTime(0.1, actx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.05);
+      osc.connect(gain);
+      gain.connect(actx.destination);
+      osc.start();
+      osc.stop(actx.currentTime + 0.05);
     } catch (e) {}
   },
   item: () => {
@@ -112,6 +190,29 @@ const sfx = {
       osc.stop(actx.currentTime + 0.5);
     } catch (e) {}
   },
+  superJump: () => {
+    try {
+      const actx = getAudioCtx();
+      const osc1 = actx.createOscillator();
+      const osc2 = actx.createOscillator();
+      const gain = actx.createGain();
+      osc1.type = 'square';
+      osc2.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(300, actx.currentTime);
+      osc1.frequency.exponentialRampToValueAtTime(1500, actx.currentTime + 1.5);
+      osc2.frequency.setValueAtTime(310, actx.currentTime);
+      osc2.frequency.exponentialRampToValueAtTime(1550, actx.currentTime + 1.5);
+      gain.gain.setValueAtTime(0.12, actx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 2.0);
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(actx.destination);
+      osc1.start();
+      osc1.stop(actx.currentTime + 2.0);
+      osc2.start();
+      osc2.stop(actx.currentTime + 2.0);
+    } catch (e) {}
+  },
 };
 
 // === 화면 전환 로직 ===
@@ -121,22 +222,25 @@ function initApp() {
   window.addEventListener('mousedown', bypassIntro, true);
   window.addEventListener('touchstart', bypassIntro, true);
   window.addEventListener('keydown', bypassIntro, true);
+  if (window.speechSynthesis)
+    cnVoices = window.speechSynthesis
+      .getVoices()
+      .filter((v) => v.lang.includes('zh'));
 }
 
 function bypassIntro(e) {
   if (isIntroPassed) return;
   if (e && e.type === 'keydown' && e.code === 'Space') e.preventDefault();
-
   isIntroPassed = true;
   window.removeEventListener('mousedown', bypassIntro, true);
   window.removeEventListener('touchstart', bypassIntro, true);
   window.removeEventListener('keydown', bypassIntro, true);
-
   try {
     getAudioCtx();
     introAudio.play().catch((err) => {});
+    if (window.speechSynthesis)
+      window.speechSynthesis.speak(new SpeechSynthesisUtterance(''));
   } catch (error) {}
-
   introScreen.classList.add('hidden');
   lobbyScreen.classList.remove('hidden');
 }
@@ -183,12 +287,11 @@ let animationId;
 let hasStartedClimbing = false;
 
 const keys = { left: false, right: false, space: false };
-const GRAVITY = 0.5;
-const JUMP_POWER = -9.5;
-const MOVE_SPEED = 4.3;
-const PLATFORM_GAP = 110;
+const GRAVITY = 0.45;
+const JUMP_POWER = -10.0;
+const MOVE_SPEED = 4.5;
 let currentQuiz = null;
-let selectedChunks = [];
+let currentQuizSource = null;
 
 // === 포인터 이벤트 ===
 const btnLeft = document.getElementById('btn-left');
@@ -223,7 +326,8 @@ btnRight.onpointerleave = (e) => {
 
 btnSpace.onpointerdown = (e) => {
   e.preventDefault();
-  if (gameState === 'PLAYING' && !player.isJumping) triggerJump();
+  if (gameState === 'PLAYING' && !player.isJumping && !player.isSuperJumping)
+    triggerJump();
   keys.space = true;
 };
 btnSpace.onpointerup = (e) => {
@@ -283,6 +387,8 @@ function startGame(mode) {
     platformOffsetY: 0,
     currentChar: '人',
     rotation: 0,
+    isSuperJumping: false,
+    superJumpTarget: 0,
   };
 
   for (let i = 1; i <= 8; i++) generateLevel();
@@ -309,6 +415,9 @@ function createPlatform(x, y, type, shape = 'rect', width = 70) {
     speedY:
       type === 'moveV' || type === 'moveD' ? (Math.random() > 0.5 ? 1 : -1) : 0,
     range: 80,
+    angle: 0,
+    pillarH: shape.includes('tall') ? 45 : 20,
+    used: false,
   };
 }
 
@@ -317,27 +426,44 @@ function generateLevel() {
   let lastType = highest ? highest.type : 'static';
   let lastY = highest ? highest.startY : 520;
 
+  let difficulty = Math.min(1.0, score / 2000);
+
   const types = ['static', 'static', 'moveH', 'moveV', 'moveD', 'heavy'];
   let selectedType = types[Math.floor(Math.random() * types.length)];
   if (lastType === 'heavy' && selectedType === 'heavy') selectedType = 'static';
 
-  let gap = lastType === 'heavy' ? 55 : PLATFORM_GAP;
+  let baseGap = 70 + difficulty * 50;
+  let gap = lastType === 'heavy' ? 60 : Math.random() * 25 + baseGap;
   let yPos = lastY - gap;
 
-  let baseWidth = gameMode === 'hell' ? 30 : 50;
-  let width = Math.random() * 50 + baseWidth;
+  let baseWidth = gameMode === 'hell' ? 30 : Math.max(30, 50 - difficulty * 20);
+  let width = Math.random() * 40 + baseWidth;
   let shape = 'rect';
 
-  let difficultyChance = Math.min(0.7, score / 1500);
+  let specialChance = 0.2 + difficulty * 0.6;
   let rand = Math.random();
 
-  if (score > 100 && rand < difficultyChance) {
-    if (rand < difficultyChance * 0.4) {
-      shape = Math.random() > 0.5 ? 'L-left' : 'L-right';
-      width = 85;
-    } else {
+  if (score > 100 && rand < specialChance) {
+    let subRand = Math.random();
+    if (subRand < 0.15) {
+      shape = 'spring';
+      width = 60;
+      selectedType = 'static';
+    } else if (subRand < 0.4) {
+      let lTypes = [
+        'L-left-tall',
+        'L-right-tall',
+        'L-left-wide',
+        'L-right-wide',
+      ];
+      shape = lTypes[Math.floor(Math.random() * lTypes.length)];
+      width = shape.includes('wide') ? 110 : 70;
+    } else if (subRand < 0.7) {
       shape = 'circle';
-      width = 55;
+      width = 50;
+    } else {
+      shape = 'seesaw';
+      width = 100;
     }
   } else if (Math.random() < 0.15) {
     shape = 'long';
@@ -345,9 +471,16 @@ function generateLevel() {
   }
 
   const xPos = Math.random() * (canvas.width - width - 20) + 10;
-  platforms.push(createPlatform(xPos, yPos, selectedType, shape, width));
+  let newPlatform = createPlatform(xPos, yPos, selectedType, shape, width);
 
-  if (Math.random() < 0.15)
+  if (selectedType.includes('move')) {
+    newPlatform.speedX *= 1 + difficulty * 0.8;
+    newPlatform.speedY *= 1 + difficulty * 0.8;
+  }
+  platforms.push(newPlatform);
+
+  let itemChance = 0.15 - difficulty * 0.05;
+  if (shape !== 'spring' && Math.random() < itemChance)
     items.push({
       x: xPos + width / 2 - 10,
       y: yPos - 25,
@@ -359,15 +492,23 @@ function generateLevel() {
 }
 
 window.addEventListener('keydown', (e) => {
+  if (gameState === 'QUIZ') {
+    if (e.key === '1') selectOption(0);
+    if (e.key === '2') selectOption(1);
+    if (e.key === '3') selectOption(2);
+    return;
+  }
+
   if (gameState !== 'PLAYING') return;
   if (e.code === 'ArrowLeft') keys.left = true;
   if (e.code === 'ArrowRight') keys.right = true;
-  if (e.code === 'Space' && !player.isJumping) {
+  if (e.code === 'Space' && !player.isJumping && !player.isSuperJumping) {
     e.preventDefault();
     keys.space = true;
     triggerJump();
   }
 });
+
 window.addEventListener('keyup', (e) => {
   if (e.code === 'ArrowLeft') keys.left = false;
   if (e.code === 'ArrowRight') keys.right = false;
@@ -376,18 +517,13 @@ window.addEventListener('keyup', (e) => {
 
 function triggerJump() {
   player.isJumping = true;
-  player.jumpFromType = player.currentPlatform
-    ? player.currentPlatform.type
-    : 'static';
   player.currentPlatform = null;
-
-  let currentJumpPower =
-    player.jumpFromType === 'heavy' ? JUMP_POWER * 0.75 : JUMP_POWER;
-  player.vy = currentJumpPower;
+  player.vy = JUMP_POWER;
   player.platformOffsetY = 0;
 
   createParticles(player.x, player.y + player.radius, '#FF9800', 15);
   sfx.jump();
+  speakChinese('跳', 'jump');
 }
 
 function createParticles(x, y, color, count) {
@@ -417,58 +553,128 @@ function update() {
     )
       p.speedX *= -1;
     if (Math.abs(p.y - p.startY) > p.range / 2) p.speedY *= -1;
+
+    if (p.shape === 'seesaw') {
+      let center = p.x + p.width / 2;
+      let targetAngle = 0;
+      if (player.currentPlatform === p && !player.isJumping) {
+        let dist = player.x - center;
+        targetAngle = (dist / (p.width / 2)) * (Math.PI / 4);
+      }
+      p.angle += (targetAngle - p.angle) * 0.1;
+    }
   });
 
   let targetVx = 0;
   if (keys.left) targetVx = -MOVE_SPEED;
   else if (keys.right) targetVx = MOVE_SPEED;
 
-  if (
-    !player.isJumping &&
-    player.currentPlatform &&
-    player.currentPlatform.shape === 'circle'
-  ) {
-    let circleCenter =
-      player.currentPlatform.x + player.currentPlatform.width / 2;
-    targetVx += (player.x - circleCenter) * 0.16;
+  if (!player.isJumping && player.currentPlatform) {
+    if (player.currentPlatform.shape === 'circle') {
+      let circleCenter =
+        player.currentPlatform.x + player.currentPlatform.width / 2;
+      targetVx += (player.x - circleCenter) * 0.16;
+    } else if (player.currentPlatform.shape === 'seesaw') {
+      targetVx += Math.tan(player.currentPlatform.angle) * 2.0;
+    }
   }
 
-  player.vx = targetVx;
-  player.x += player.vx;
-
-  if (player.isJumping) {
-    player.currentChar = '大';
-    player.rotation += player.vx * 0.05;
-    let currentGravity = GRAVITY;
-    if (keys.space && player.vy < 0)
-      currentGravity =
-        player.jumpFromType === 'heavy' ? GRAVITY * 0.85 : GRAVITY * 0.65;
-    player.vy += currentGravity;
-    player.y += player.vy;
-    checkLanding();
-  } else if (player.currentPlatform) {
-    player.currentChar = '人';
+  // [무적 상태 제어] 슈퍼 점프 중에는 좌우 이동 및 충돌 처리를 전부 무시함
+  if (player.isSuperJumping) {
+    player.currentChar = '飛';
     player.rotation = 0;
-    let p = player.currentPlatform;
-    if (p.shape === 'L-left')
-      player.platformOffsetY =
-        player.x >= p.x - 4 && player.x < p.x + 22 ? 25 : 0;
-    else if (p.shape === 'L-right')
-      player.platformOffsetY =
-        player.x >= p.x + p.width - 22 && player.x <= p.x + p.width + 4
-          ? 25
-          : 0;
-    else player.platformOffsetY = 0;
+    player.vy = -35;
+    player.vx = 0;
+    player.y += player.vy;
 
-    player.x += p.speedX;
-    player.y = p.y - player.platformOffsetY - player.radius;
+    createParticles(player.x, player.y + player.radius, '#ff00ff', 3);
 
-    if (player.x < p.x || player.x > p.x + p.width) {
+    if (score >= player.superJumpTarget) {
+      player.isSuperJumping = false;
       player.isJumping = true;
-      player.jumpFromType = p.type;
-      player.currentPlatform = null;
-      player.platformOffsetY = 0;
-      player.vy = 0;
+      player.vy = -5;
+      player.currentChar = '大';
+    }
+  } else {
+    player.vx = targetVx;
+    player.x += player.vx;
+
+    // L자 발판 벽 충돌
+    platforms.forEach((p) => {
+      if (p.shape.includes('L-')) {
+        let isLeft = p.shape.includes('L-left');
+        let pLeft = isLeft ? p.x : p.x + p.width - 20;
+        let pRight = isLeft ? p.x + 20 : p.x + p.width;
+        let pTop = p.y - p.pillarH;
+        let pBottom = p.y;
+
+        if (
+          player.y + player.radius > pTop + 2 &&
+          player.y - player.radius < pBottom
+        ) {
+          if (
+            player.x + player.radius > pLeft &&
+            player.x - player.radius < pRight
+          ) {
+            if (player.vx > 0) player.x = pLeft - player.radius;
+            else if (player.vx < 0) player.x = pRight + player.radius;
+            player.vx = 0;
+          }
+        }
+      }
+    });
+
+    if (player.isJumping) {
+      player.currentChar = '大';
+      player.rotation += player.vx * 0.05;
+      let currentGravity = GRAVITY;
+      if (keys.space && player.vy < 0)
+        currentGravity =
+          player.jumpFromType === 'heavy' ? GRAVITY * 0.85 : GRAVITY * 0.55;
+      player.vy += currentGravity;
+      player.y += player.vy;
+      checkLanding();
+    } else if (player.currentPlatform) {
+      player.currentChar = '人';
+      player.rotation = 0;
+      let p = player.currentPlatform;
+
+      let newOffset = 0;
+      if (p.shape.includes('L-left')) {
+        newOffset = player.x <= p.x + 20 ? p.pillarH : 0;
+      } else if (p.shape.includes('L-right')) {
+        newOffset = player.x >= p.x + p.width - 20 ? p.pillarH : 0;
+      } else if (p.shape === 'seesaw') {
+        let dist = player.x - (p.x + p.width / 2);
+        newOffset = -Math.tan(p.angle) * dist;
+      }
+
+      if (
+        player.platformOffsetY > 0 &&
+        newOffset === 0 &&
+        !p.shape.includes('seesaw')
+      ) {
+        player.isJumping = true;
+        player.jumpFromType = p.type;
+        player.currentPlatform = null;
+        player.platformOffsetY = 0;
+        player.vy = 0;
+      } else {
+        player.platformOffsetY = newOffset;
+        player.x += p.speedX;
+        player.y = p.y - player.platformOffsetY - player.radius;
+
+        if (
+          player.x < p.x - player.radius * 0.8 ||
+          player.x > p.x + p.width + player.radius * 0.8
+        ) {
+          player.isJumping = true;
+          player.jumpFromType = p.type;
+          player.currentPlatform = null;
+          player.platformOffsetY = 0;
+          player.vy = 0;
+        }
+      }
     }
   }
 
@@ -476,19 +682,22 @@ function update() {
   if (player.x > canvas.width - player.radius)
     player.x = canvas.width - player.radius;
 
-  items.forEach((item) => {
-    item.floatOffset += 0.1;
-    if (
-      item.active &&
-      Math.abs(player.x - (item.x + 10)) < 26 &&
-      Math.abs(player.y - (item.y + 10)) < 26
-    ) {
-      item.active = false;
-      createParticles(item.x + 10, item.y + 10, '#00ffcc', 20);
-      sfx.item();
-      triggerQuiz();
-    }
-  });
+  // [무적 제어] 슈퍼 점프 중에는 노란색 아이템도 획득 판정을 패스함
+  if (!player.isSuperJumping) {
+    items.forEach((item) => {
+      item.floatOffset += 0.1;
+      if (
+        item.active &&
+        Math.abs(player.x - (item.x + 10)) < 26 &&
+        Math.abs(player.y - (item.y + 10)) < 26
+      ) {
+        item.active = false;
+        createParticles(item.x + 10, item.y + 10, '#00ffcc', 20);
+        sfx.item();
+        triggerQuiz('item');
+      }
+    });
+  }
 
   if (player.y < 300) {
     let diff = 300 - player.y;
@@ -504,17 +713,22 @@ function update() {
     scoreUI.innerText = score;
 
     if (!hasStartedClimbing) hasStartedClimbing = true;
-    else lava.y += diff;
+    else {
+      lava.y += diff;
+      if (player.isSuperJumping) lava.y += diff * 0.85;
+    }
 
-    if (platforms[0].y > canvas.height + 100) {
+    while (platforms.length > 0 && platforms[0].y > canvas.height + 100) {
       platforms.shift();
       generateLevel();
     }
   }
 
   if (hasStartedClimbing) {
-    let accel = gameMode === 'hell' ? 0.0008 : 0.0004;
-    lava.speed += accel;
+    if (!player.isSuperJumping) {
+      let accel = gameMode === 'hell' ? 0.0008 : 0.0004;
+      lava.speed += accel;
+    }
     lavaSpeedUI.innerText =
       lava.speed.toFixed(1) + (gameMode === 'hell' ? ' (HELL)' : '');
     lava.y -= lava.speed;
@@ -533,38 +747,69 @@ function update() {
 }
 
 function checkLanding() {
+  if (player.isSuperJumping) return;
+
   if (player.vy > 0) {
     for (let p of platforms) {
       let surfaces = [];
-      if (p.shape === 'L-left') {
-        surfaces.push({ x1: p.x, x2: p.x + 20, y: p.y - 25, offset: 25 });
+
+      if (p.shape.includes('L-left')) {
+        surfaces.push({
+          x1: p.x,
+          x2: p.x + 20,
+          y: p.y - p.pillarH,
+          offset: p.pillarH,
+        });
         surfaces.push({ x1: p.x + 20, x2: p.x + p.width, y: p.y, offset: 0 });
-      } else if (p.shape === 'L-right') {
+      } else if (p.shape.includes('L-right')) {
         surfaces.push({ x1: p.x, x2: p.x + p.width - 20, y: p.y, offset: 0 });
         surfaces.push({
           x1: p.x + p.width - 20,
           x2: p.x + p.width,
-          y: p.y - 25,
-          offset: 25,
+          y: p.y - p.pillarH,
+          offset: p.pillarH,
+        });
+      } else if (p.shape === 'seesaw') {
+        surfaces.push({
+          x1: p.x,
+          x2: p.x + p.width,
+          y: p.y,
+          offset: 0,
+          isSeesaw: true,
         });
       } else {
         surfaces.push({ x1: p.x, x2: p.x + p.width, y: p.y, offset: 0 });
       }
 
       for (let s of surfaces) {
+        let surfaceY = s.y;
+        if (s.isSeesaw) {
+          let dist = player.x - (p.x + p.width / 2);
+          surfaceY = p.y + Math.tan(p.angle) * dist;
+        }
+
         if (
           player.x > s.x1 - player.radius &&
           player.x < s.x2 + player.radius &&
-          player.y + player.radius >= s.y &&
-          player.y + player.radius <= s.y + player.vy + 4
+          player.y + player.radius >= surfaceY &&
+          player.y + player.radius <= surfaceY + player.vy + 4
         ) {
-          player.y = s.y - player.radius;
+          player.y = surfaceY - player.radius;
           player.vy = 0;
           player.vx = 0;
           player.isJumping = false;
           player.currentPlatform = p;
-          player.platformOffsetY = s.offset;
+          player.platformOffsetY = s.isSeesaw
+            ? -Math.tan(p.angle) * (player.x - (p.x + p.width / 2))
+            : s.offset;
+
           createParticles(player.x, player.y + player.radius, '#fff', 5);
+          sfx.land();
+
+          if (p.shape === 'spring' && !p.used) {
+            p.used = true;
+            triggerQuiz('spring');
+          }
           return;
         }
       }
@@ -572,57 +817,92 @@ function checkLanding() {
   }
 }
 
-function triggerQuiz() {
+function triggerQuiz(source) {
   gameState = 'QUIZ';
-  selectedChunks = [];
+  currentQuizSource = source;
   document.getElementById('quiz-answer-slot').innerText = '';
   document.getElementById('quiz-buttons').innerHTML = '';
 
-  // data.js 에 선언된 sentenceBank 배열을 사용
-  currentQuiz = sentenceBank[Math.floor(Math.random() * sentenceBank.length)];
-  document.getElementById('quiz-meaning').innerText = currentQuiz.meaning;
+  currentQuiz = quizBank[Math.floor(Math.random() * quizBank.length)];
+  document.getElementById('quiz-question').innerText = currentQuiz.question;
 
-  let shuffled = [...currentQuiz.chunks].sort(() => Math.random() - 0.5);
-  shuffled.forEach((chunk) => {
+  speakChinese(currentQuiz.question, 'normal');
+
+  currentQuiz.options.forEach((opt, index) => {
     let btn = document.createElement('button');
-    btn.innerText = chunk;
-    btn.onclick = () => selectChunk(chunk, btn);
+    btn.className = 'quiz-opt-btn';
+    btn.innerText = `${index + 1}. ${opt}`;
+    btn.onclick = () => selectOption(index);
     document.getElementById('quiz-buttons').appendChild(btn);
   });
   quizModal.classList.remove('hidden');
 }
 
-function selectChunk(chunk, btn) {
-  selectedChunks.push(chunk);
-  btn.style.display = 'none';
-  document.getElementById('quiz-answer-slot').innerText =
-    selectedChunks.join(' ');
-  if (selectedChunks.length === currentQuiz.chunks.length) {
-    if (selectedChunks.join('') === currentQuiz.chunks.join('')) {
-      document.getElementById('quiz-answer-slot').innerText =
-        '정답! 용암이 물러납니다.';
-      document.getElementById('quiz-answer-slot').style.color = '#00ffcc';
-      sfx.correct();
-      setTimeout(() => {
-        quizModal.classList.add('hidden');
-        lava.y = canvas.height - 40;
-        lava.speed = gameMode === 'hell' ? 1.0 : 0.6;
-        gameState = 'PLAYING';
-      }, 1000);
-    } else {
-      document.getElementById('quiz-answer-slot').innerText = '오답입니다!';
-      document.getElementById('quiz-answer-slot').style.color = '#ff3366';
-      sfx.wrong();
-      setTimeout(() => {
-        quizModal.classList.add('hidden');
-        gameState = 'PLAYING';
-      }, 1000);
-    }
+function selectOption(selectedIndex) {
+  if (gameState !== 'QUIZ') return;
+
+  if (selectedIndex === currentQuiz.answer) {
+    document.getElementById('quiz-answer-slot').innerText =
+      '정답! 용암이 물러납니다.';
+    document.getElementById('quiz-answer-slot').style.color = '#00ffcc';
+    sfx.correct();
+
+    setTimeout(() => {
+      quizModal.classList.add('hidden');
+      lava.y = canvas.height - 40;
+      lava.speed = gameMode === 'hell' ? 1.0 : 0.6;
+      gameState = 'PLAYING';
+
+      if (currentQuizSource === 'spring') {
+        player.isSuperJumping = true;
+        player.superJumpTarget = score + Math.floor(Math.random() * 200) + 350;
+        player.vy = -35;
+        player.isJumping = true;
+        player.currentPlatform = null;
+        sfx.superJump();
+
+        // [명언 선정 및 낭독] 랜덤하게 명언을 뽑아 할당 후 웅장하게 출력
+        currentSubtitle =
+          superJumpQuotes[Math.floor(Math.random() * superJumpQuotes.length)];
+        speakChinese(currentSubtitle.hz, 'normal');
+
+        createParticles(player.x, player.y + player.radius, '#ff00ff', 40);
+      }
+    }, 1000);
+  } else {
+    let penaltyText = currentQuizSource === 'spring' ? '50%' : '10%';
+    let speedMultiplier = currentQuizSource === 'spring' ? 1.5 : 1.1;
+
+    document.getElementById('quiz-answer-slot').innerText =
+      `오답! 용암 가속 ${penaltyText}`;
+    document.getElementById('quiz-answer-slot').style.color = '#ff3366';
+    sfx.wrong();
+
+    setTimeout(() => {
+      quizModal.classList.add('hidden');
+      lava.speed *= speedMultiplier;
+      gameState = 'PLAYING';
+    }, 1000);
   }
 }
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (player.isSuperJumping) {
+    ctx.fillStyle = 'rgba(255, 0, 255, 0.12)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    for (let i = 0; i < 15; i++) {
+      ctx.fillRect(
+        Math.random() * canvas.width,
+        Math.random() * canvas.height,
+        2,
+        Math.random() * 100 + 50,
+      );
+    }
+  }
 
   trails.push({
     x: player.x,
@@ -656,6 +936,9 @@ function draw() {
     if (p.type === 'heavy') {
       ctx.fillStyle = '#3F51B5';
       ctx.shadowColor = '#3F51B5';
+    } else if (p.shape === 'spring') {
+      ctx.fillStyle = '#ff00ff';
+      ctx.shadowColor = '#ff00ff';
     } else if (p.type === 'static') {
       ctx.fillStyle = '#9E9E9E';
       ctx.shadowBlur = 0;
@@ -666,12 +949,17 @@ function draw() {
 
     if (p.shape === 'rect' || p.shape === 'long') {
       ctx.fillRect(p.x, p.y, p.width, p.height);
-    } else if (p.shape === 'L-left') {
+    } else if (p.shape.includes('L-left')) {
       ctx.fillRect(p.x + 20, p.y, p.width - 20, p.height);
-      ctx.fillRect(p.x, p.y - 25, 20, p.height + 25);
-    } else if (p.shape === 'L-right') {
+      ctx.fillRect(p.x, p.y - p.pillarH, 20, p.height + p.pillarH);
+    } else if (p.shape.includes('L-right')) {
       ctx.fillRect(p.x, p.y, p.width - 20, p.height);
-      ctx.fillRect(p.x + p.width - 20, p.y - 25, 20, p.height + 25);
+      ctx.fillRect(
+        p.x + p.width - 20,
+        p.y - p.pillarH,
+        20,
+        p.height + p.pillarH,
+      );
     } else if (p.shape === 'circle') {
       ctx.beginPath();
       let r = p.width / 2;
@@ -684,6 +972,23 @@ function draw() {
       ctx.arc(p.x + r - 6, p.y + r - 6, r * 0.4, 0, Math.PI * 2);
       ctx.fill();
       ctx.closePath();
+    } else if (p.shape === 'seesaw') {
+      ctx.save();
+      ctx.translate(p.x + p.width / 2, p.y + p.height / 2);
+      ctx.rotate(p.angle);
+      ctx.fillRect(-p.width / 2, -p.height / 2, p.width, p.height);
+      ctx.fillStyle = '#ffcc00';
+      ctx.beginPath();
+      ctx.arc(0, p.height / 2, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.closePath();
+      ctx.restore();
+    } else if (p.shape === 'spring') {
+      ctx.fillRect(p.x, p.y, p.width, p.height);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('▲', p.x + p.width / 2, p.y + 8);
     }
     ctx.shadowBlur = 0;
   });
@@ -722,11 +1027,37 @@ function draw() {
   ctx.shadowBlur = 10;
   ctx.shadowColor = '#FF9800';
   ctx.fillStyle = '#FF9800';
-  ctx.font = "bold 38px 'Malgun Gothic', sans-serif";
+  if (player.isSuperJumping) ctx.font = "bold 50px 'Malgun Gothic', sans-serif";
+  else ctx.font = "bold 38px 'Malgun Gothic', sans-serif";
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(player.currentChar, 0, 0);
   ctx.restore();
+
+  // ==========================================
+  // 🎨 [신규 연출] 슈퍼 점프 전용 궁서체 명언 자막 렌더링
+  // ==========================================
+  if (player.isSuperJumping) {
+    ctx.save();
+    ctx.textAlign = 'center';
+
+    // 검은색 투명 배경 바 (가사 바 느낌)
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(10, 180, canvas.width - 20, 100);
+
+    // 1. 한자 자막 (궁서체)
+    ctx.font = "bold 22px 'Gungsuh', '궁서', 'GungsuhChe', serif";
+    ctx.fillStyle = '#ffcc00'; // 황금빛 서체
+    ctx.shadowBlur = 4;
+    ctx.shadowColor = '#000';
+    ctx.fillText(currentSubtitle.hz, canvas.width / 2, 220);
+
+    // 2. 한글 해석 자막 (얇은 궁서)
+    ctx.font = "14px 'Gungsuh', '궁서', serif";
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(currentSubtitle.kr, canvas.width / 2, 255);
+    ctx.restore();
+  }
 
   let lavaGradient = ctx.createLinearGradient(0, lava.y, 0, canvas.height);
   lavaGradient.addColorStop(0, 'rgba(255, 51, 102, 0.85)');

@@ -13,7 +13,7 @@
     <div id="game-container">
       <div id="intro-screen" class="screen">
         <h1 class="blink">
-          아무 곳이나 터치해주세요<br /><small>(Tap to Start)</small>
+          아무 곳이나 눌러주세요<br /><small>(Tap to Start)</small>
         </h1>
       </div>
 
@@ -74,13 +74,18 @@
         </div>
 
         <div id="touch-controls">
-          <button id="btn-left">◀</button>
-          <button id="btn-space">JUMP</button>
-          <button id="btn-right">▶</button>
+          <div class="d-pad">
+            <button id="btn-left">◀</button>
+            <button id="btn-right">▶</button>
+          </div>
+          <div class="action-pad">
+            <button id="btn-space">JUMP</button>
+          </div>
         </div>
       </div>
     </div>
 
+    <script src="data.js"></script>
     <script src="scripts.js"></script>
   </body>
 </html>

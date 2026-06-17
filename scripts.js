@@ -1,15 +1,3 @@
-// === 문장 데이터 ===
-const sentenceBank = [
-  { meaning: '나는 사과를 먹는다.', chunks: ['我', '吃', '苹果'] },
-  { meaning: '그는 학교에 간다.', chunks: ['他', '去', '学校'] },
-  { meaning: '우리는 중국어를 배운다.', chunks: ['我们', '学', '汉语'] },
-  {
-    meaning: '나는 영화 보는 것을 좋아해.',
-    chunks: ['我', '喜欢', '看', '电影'],
-  },
-  { meaning: '이것은 내 책이야.', chunks: ['这', '是', '我的', '书'] },
-];
-
 // === UI 요소 연결 ===
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -46,84 +34,109 @@ bgmAudio.addEventListener('ended', playRandomBGM);
 
 const sfx = {
   jump: () => {
-    const actx = getAudioCtx();
-    const osc = actx.createOscillator();
-    const gain = actx.createGain();
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(300, actx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(600, actx.currentTime + 0.1);
-    gain.gain.setValueAtTime(0.05, actx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.1);
-    osc.connect(gain);
-    gain.connect(actx.destination);
-    osc.start();
-    osc.stop(actx.currentTime + 0.1);
+    try {
+      const actx = getAudioCtx();
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(300, actx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(600, actx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.05, actx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.1);
+      osc.connect(gain);
+      gain.connect(actx.destination);
+      osc.start();
+      osc.stop(actx.currentTime + 0.1);
+    } catch (e) {}
   },
   item: () => {
-    const actx = getAudioCtx();
-    const osc = actx.createOscillator();
-    const gain = actx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(800, actx.currentTime);
-    osc.frequency.setValueAtTime(1200, actx.currentTime + 0.05);
-    gain.gain.setValueAtTime(0.1, actx.currentTime);
-    gain.gain.linearRampToValueAtTime(0, actx.currentTime + 0.2);
-    osc.connect(gain);
-    gain.connect(actx.destination);
-    osc.start();
-    osc.stop(actx.currentTime + 0.2);
+    try {
+      const actx = getAudioCtx();
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, actx.currentTime);
+      osc.frequency.setValueAtTime(1200, actx.currentTime + 0.05);
+      gain.gain.setValueAtTime(0.1, actx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, actx.currentTime + 0.2);
+      osc.connect(gain);
+      gain.connect(actx.destination);
+      osc.start();
+      osc.stop(actx.currentTime + 0.2);
+    } catch (e) {}
   },
   correct: () => {
-    const actx = getAudioCtx();
-    const osc = actx.createOscillator();
-    const gain = actx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(1000, actx.currentTime);
-    osc.frequency.setValueAtTime(1500, actx.currentTime + 0.1);
-    gain.gain.setValueAtTime(0.1, actx.currentTime);
-    gain.gain.linearRampToValueAtTime(0, actx.currentTime + 0.3);
-    osc.connect(gain);
-    gain.connect(actx.destination);
-    osc.start();
-    osc.stop(actx.currentTime + 0.3);
+    try {
+      const actx = getAudioCtx();
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1000, actx.currentTime);
+      osc.frequency.setValueAtTime(1500, actx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.1, actx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, actx.currentTime + 0.3);
+      osc.connect(gain);
+      gain.connect(actx.destination);
+      osc.start();
+      osc.stop(actx.currentTime + 0.3);
+    } catch (e) {}
   },
   wrong: () => {
-    const actx = getAudioCtx();
-    const osc = actx.createOscillator();
-    const gain = actx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(150, actx.currentTime);
-    gain.gain.setValueAtTime(0.1, actx.currentTime);
-    gain.gain.linearRampToValueAtTime(0, actx.currentTime + 0.3);
-    osc.connect(gain);
-    gain.connect(actx.destination);
-    osc.start();
-    osc.stop(actx.currentTime + 0.3);
+    try {
+      const actx = getAudioCtx();
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(150, actx.currentTime);
+      gain.gain.setValueAtTime(0.1, actx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, actx.currentTime + 0.3);
+      osc.connect(gain);
+      gain.connect(actx.destination);
+      osc.start();
+      osc.stop(actx.currentTime + 0.3);
+    } catch (e) {}
   },
   die: () => {
-    const actx = getAudioCtx();
-    const osc = actx.createOscillator();
-    const gain = actx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(300, actx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(50, actx.currentTime + 0.5);
-    gain.gain.setValueAtTime(0.2, actx.currentTime);
-    gain.gain.linearRampToValueAtTime(0, actx.currentTime + 0.5);
-    osc.connect(gain);
-    gain.connect(actx.destination);
-    osc.start();
-    osc.stop(actx.currentTime + 0.5);
+    try {
+      const actx = getAudioCtx();
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(300, actx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(50, actx.currentTime + 0.5);
+      gain.gain.setValueAtTime(0.2, actx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, actx.currentTime + 0.5);
+      osc.connect(gain);
+      gain.connect(actx.destination);
+      osc.start();
+      osc.stop(actx.currentTime + 0.5);
+    } catch (e) {}
   },
 };
 
 // === 화면 전환 로직 ===
+let isIntroPassed = false;
+
 function initApp() {
-  window.addEventListener('pointerdown', bypassIntro, { once: true });
+  window.addEventListener('mousedown', bypassIntro, true);
+  window.addEventListener('touchstart', bypassIntro, true);
+  window.addEventListener('keydown', bypassIntro, true);
 }
 
-function bypassIntro() {
-  getAudioCtx();
-  introAudio.play().catch((e) => {});
+function bypassIntro(e) {
+  if (isIntroPassed) return;
+  if (e && e.type === 'keydown' && e.code === 'Space') e.preventDefault();
+
+  isIntroPassed = true;
+  window.removeEventListener('mousedown', bypassIntro, true);
+  window.removeEventListener('touchstart', bypassIntro, true);
+  window.removeEventListener('keydown', bypassIntro, true);
+
+  try {
+    getAudioCtx();
+    introAudio.play().catch((err) => {});
+  } catch (error) {}
+
   introScreen.classList.add('hidden');
   lobbyScreen.classList.remove('hidden');
 }
@@ -177,7 +190,7 @@ const PLATFORM_GAP = 110;
 let currentQuiz = null;
 let selectedChunks = [];
 
-// === 포인터 이벤트 (모바일/PC 터치패드) ===
+// === 포인터 이벤트 ===
 const btnLeft = document.getElementById('btn-left');
 const btnRight = document.getElementById('btn-right');
 const btnSpace = document.getElementById('btn-space');
@@ -564,8 +577,11 @@ function triggerQuiz() {
   selectedChunks = [];
   document.getElementById('quiz-answer-slot').innerText = '';
   document.getElementById('quiz-buttons').innerHTML = '';
+
+  // data.js 에 선언된 sentenceBank 배열을 사용
   currentQuiz = sentenceBank[Math.floor(Math.random() * sentenceBank.length)];
   document.getElementById('quiz-meaning').innerText = currentQuiz.meaning;
+
   let shuffled = [...currentQuiz.chunks].sort(() => Math.random() - 0.5);
   shuffled.forEach((chunk) => {
     let btn = document.createElement('button');

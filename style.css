@@ -1,23 +1,26 @@
-/* HTML 전체의 배경을 어둡게 깔아 흰 여백 원천 차단 */
-html {
-  background-color: #050508;
+/* 화면 전체를 브라우저 뷰포트에 꽉 물리적으로 고정시킴 */
+html,
+body {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   width: 100%;
   height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  /* 오락실 스크린처럼 중앙에서 퍼져나가는 은은한 조명 효과 */
   background: radial-gradient(circle at center, #2a2a35 0%, #050508 100%);
   color: #fff;
   font-family: 'Malgun Gothic', sans-serif;
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 100%;
-  height: 100%;
-  margin: 0;
   overflow: hidden;
-  touch-action: none;
+  touch-action: none; /* 화면 새로고침(당겨서 새로고침) 스와이프 방지 */
 }
 
 #game-container {
@@ -25,10 +28,10 @@ body {
   width: 100%;
   max-width: 400px;
   height: 100%;
-  max-height: 750px;
+  max-height: 850px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 0 50px rgba(0, 0, 0, 0.9); /* 바깥쪽 그림자 강화로 입체감 부여 */
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.9);
   background-color: #1a1a1a;
   overflow: hidden;
 }
@@ -110,6 +113,7 @@ body {
   padding: 12px 20px;
   font-weight: bold;
   flex-shrink: 0;
+  z-index: 5;
 }
 #lava-warning {
   color: #ff3366;
@@ -188,12 +192,13 @@ button {
   min-height: 25px;
 }
 
-/* === 📱 모바일 하단바 및 소프트키 차단 방지 터치 패드 === */
+/* === 📱 모바일 가상 터치 패드 === */
 #touch-controls {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 20px calc(env(safe-area-inset-bottom, 20px) + 30px) 20px;
+  /* [핵심 1] 하단 여백을 대폭(60px 이상) 키워서 브라우저 홈바와 완벽 격리 */
+  padding: 15px 20px calc(env(safe-area-inset-bottom, 20px) + 60px) 20px;
   background: #1a1a24;
   flex-shrink: 0;
   border-top: 2px solid #333;
@@ -204,6 +209,21 @@ button {
   gap: 10px;
   width: 55%;
 }
+.action-pad {
+  width: 40%;
+  display: flex;
+  justify-content: flex-end;
+}
+
+#touch-controls button {
+  /* [핵심 2] 텍스트 드래그(선택) 및 돋보기 팝업 완벽 차단 */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+  transition: background 0.1s;
+}
+
 .d-pad button {
   flex: 1;
   height: 60px;
@@ -212,14 +232,8 @@ button {
   font-size: 1.8rem;
   border-radius: 15px;
   border: 2px solid rgba(255, 255, 255, 0.2);
-  touch-action: none;
-  transition: background 0.1s;
 }
-.action-pad {
-  width: 40%;
-  display: flex;
-  justify-content: flex-end;
-}
+
 #btn-space {
   width: 100%;
   height: 60px;
@@ -229,7 +243,6 @@ button {
   font-size: 1.3rem;
   border-radius: 50px;
   box-shadow: 0 4px 15px rgba(0, 255, 204, 0.4);
-  touch-action: none;
 }
 .d-pad button:active {
   background: rgba(255, 255, 255, 0.3);

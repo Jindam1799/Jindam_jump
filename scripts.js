@@ -11,7 +11,7 @@ const gameOverUI = document.getElementById('game-over');
 const quizModal = document.getElementById('quiz-modal');
 const rankingList = document.getElementById('ranking-list');
 
-// === 슈퍼 점프 전용 중국 명언 (중후한 남성 목소리) ===
+// === 슈퍼 점프 전용 중국 명언 ===
 const superJumpQuotes = [
   {
     hz: '欲穷千里目，更上一层楼',
@@ -31,7 +31,7 @@ const superJumpQuotes = [
   },
 ];
 
-// === 점프 응원 문구 5종 세트 ===
+// === 점프 응원 문구 ===
 const jumpPhrases = [
   { hz: '跳!', kr: '뛰어!' },
   { hz: '加油!', kr: '힘내!' },
@@ -45,7 +45,7 @@ let quoteTimer = 0;
 let isQuotePlaying = false;
 
 // ==========================================
-// 🎙️ 중국어 TTS 엔진 (크롬 캔슬 버그 우회 패치 적용)
+// 🎙️ 중국어 TTS 엔진
 // ==========================================
 let cnVoices = [];
 window.speechSynthesis.onvoiceschanged = () => {
@@ -60,45 +60,35 @@ function speakChinese(text, type = 'normal') {
     if (isQuotePlaying && type === 'jump') return;
 
     window.speechSynthesis.cancel();
-
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'zh-CN';
 
     if (type === 'superJump') {
       isQuotePlaying = true;
       setTimeout(() => (isQuotePlaying = false), 5000);
-
       let voice = cnVoices.find(
         (v) =>
           v.name.toLowerCase().includes('male') ||
           v.name.includes('Kangkang') ||
-          v.name.includes('Yunxi') ||
-          v.name.includes('Yunjian'),
+          v.name.includes('Yunxi'),
       );
       if (!voice && cnVoices.length > 0)
         voice = cnVoices.find((v) => v.lang.includes('zh'));
       if (voice) utterance.voice = voice;
-
       utterance.pitch = 0.65;
       utterance.rate = 0.8;
     } else {
       let voice = cnVoices.find(
         (v) =>
           v.name.toLowerCase().includes('female') ||
-          v.name.includes('Xiaoxiao') ||
-          v.name.includes('Tingting'),
+          v.name.includes('Xiaoxiao'),
       );
       if (!voice && cnVoices.length > 0) voice = cnVoices[0];
       if (voice) utterance.voice = voice;
-
       utterance.pitch = type === 'jump' ? 1.3 : 1.0;
       utterance.rate = type === 'jump' ? 1.5 : 1.0;
     }
-
-    // [핵심 패치] TTS 캔슬 직후 곧바로 스피크를 호출하면 무시되는 브라우저 고질병을 막기 위한 50ms 비동기 처리
-    setTimeout(() => {
-      window.speechSynthesis.speak(utterance);
-    }, 50);
+    window.speechSynthesis.speak(utterance);
   } catch (e) {
     console.warn('TTS 에러', e);
   }
@@ -866,7 +856,7 @@ function checkLanding() {
         ) {
           if (p.type === 'penalty' && !p.penaltyApplied) {
             p.penaltyApplied = true;
-            lava.speed *= 1.01; // 영구 페널티 적용
+            lava.speed *= 1.01;
             player.jumpFx = {
               hz: '警告!',
               kr: '용암 가속 (+1%)',
@@ -900,38 +890,57 @@ function checkLanding() {
   }
 }
 
+// [핵심 해결] quizBank 참조 에러 방어용 자동 복구 기능 내장
 function triggerQuiz(source) {
-  if (gameState === 'QUIZ' || gameState === 'ANSWERING') return; // 중복 호출 완벽 방어
+  if (gameState === 'QUIZ' || gameState === 'ANSWERING') return;
 
-  gameState = 'QUIZ';
-  currentQuizSource = source;
-  document.getElementById('quiz-answer-slot').innerText = '';
-  document.getElementById('quiz-buttons').innerHTML = '';
+  try {
+    gameState = 'QUIZ';
+    currentQuizSource = source;
+    document.getElementById('quiz-answer-slot').innerText = '';
+    document.getElementById('quiz-buttons').innerHTML = '';
 
-  currentQuiz = quizBank[Math.floor(Math.random() * quizBank.length)];
-  document.getElementById('quiz-question').innerText = currentQuiz.question;
+    let bank =
+      typeof quizBank !== 'undefined'
+        ? quizBank
+        : [
+            {
+              question: '我吃苹果。',
+              options: [
+                '나는 사과를 먹는다.',
+                '나는 밥을 먹는다.',
+                '그는 사과를 먹는다.',
+              ],
+              answer: 0,
+            },
+          ];
 
-  currentQuiz.options.forEach((opt, index) => {
-    let btn = document.createElement('button');
-    btn.className = 'quiz-opt-btn';
-    btn.innerText = `${index + 1}. ${opt}`;
+    currentQuiz = bank[Math.floor(Math.random() * bank.length)];
+    document.getElementById('quiz-question').innerText = currentQuiz.question;
 
-    btn.onpointerdown = (e) => {
-      e.preventDefault();
-      selectOption(index);
-    };
-    btn.onclick = () => selectOption(index);
+    currentQuiz.options.forEach((opt, index) => {
+      let btn = document.createElement('button');
+      btn.className = 'quiz-opt-btn';
+      btn.innerText = `${index + 1}. ${opt}`;
+      btn.onpointerdown = (e) => {
+        e.preventDefault();
+        selectOption(index);
+      };
+      btn.onclick = () => selectOption(index);
+      document.getElementById('quiz-buttons').appendChild(btn);
+    });
 
-    document.getElementById('quiz-buttons').appendChild(btn);
-  });
-
-  quizModal.classList.remove('hidden');
-  setTimeout(() => speakChinese(currentQuiz.question, 'normal'), 50);
+    quizModal.classList.remove('hidden');
+    setTimeout(() => speakChinese(currentQuiz.question, 'normal'), 50);
+  } catch (e) {
+    console.error('퀴즈를 불러오는 데 실패했습니다. data.js를 확인하세요.', e);
+    gameState = 'PLAYING';
+  }
 }
 
 function selectOption(selectedIndex) {
   if (gameState !== 'QUIZ') return;
-  gameState = 'ANSWERING'; // 중복 터치로 인한 다중 타이머 방어막 생성
+  gameState = 'ANSWERING';
 
   if (selectedIndex === currentQuiz.answer) {
     document.getElementById('quiz-answer-slot').innerText =
@@ -947,7 +956,6 @@ function selectOption(selectedIndex) {
 
       if (currentQuizSource === 'spring') {
         superJumpCount++;
-        // [신규 기믹] 첫번째 200m, 두번째 400m... 점진적 증가
         let bonusDist = superJumpCount * 200;
 
         player.isSuperJumping = true;
